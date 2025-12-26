@@ -51,7 +51,7 @@ bool isPulsing = false;
 // Sleep system
 static unsigned long lastUserAction = 0;
 static int sleepCounter = 0;
-static const int sleepThreshold = 150; 
+static const int sleepThreshold = 150;
 static int count = 5;
 
 void IRAM_ATTR graphISR() {
@@ -111,14 +111,13 @@ void updateScale(long history[], int size) {
 void triggerPulse() {
   if (!isPulsing) {
     digitalWrite(HEART_PIN, HIGH);
-    
     pulseStartTime = millis();
     isPulsing = true;
   }
 }
 
 void go_sleep() {
-  screenID = 6;
+  screenID = 7;
   display.clearDisplay();
   display.display();
   particleSensor.shutDown();
@@ -154,7 +153,14 @@ void setup() {
     int sampleRate = 1000;
     int pulseWidth = 411;
     int adcRange = 4096;
-    particleSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
+    particleSensor.setup(
+      ledBrightness,
+      sampleAverage,
+      ledMode,
+      sampleRate,
+      pulseWidth,
+      adcRange
+    );
     particleSensor.setPulseAmplitudeRed(0x1F);
     particleSensor.setPulseAmplitudeIR(0x1F);
   }
@@ -202,22 +208,19 @@ void loop() {
   // update histories
   irHistory[bufferIndex] = irValue;
   redHistory[bufferIndex] = redValue;
-
   bufferIndex = (bufferIndex + 1) % calcDataPoints;
 
   if (pcflagGraph && !digitalRead(GRAPH_PIN)) {
-      lastUserAction = millis();
+    lastUserAction = millis();
 
-      // If countdown screen → interrupt it
-      if (screenID == 7) {
-          screenID = 4;   // Go straight to plot screen
-      }
-      else if (screenID != 4 && screenID != 5) {
-          screenID = 4;
-      } 
-      else {
-          screenID = (screenID == 4) ? 5 : 4;
-      }
+    // If countdown screen → interrupt it
+    if (screenID == 6) {
+      screenID = 4;
+    } else if (screenID != 4 && screenID != 5) {
+      screenID = 4;
+    } else {
+      screenID = (screenID == 4) ? 5 : 4;
+    }
   }
   pcflagGraph = false;
 
@@ -228,14 +231,12 @@ void loop() {
     lastUserAction = millis();
 
     // If in countdown, break out to normal view
-    if (screenID == 7) {
+    if (screenID == 6) {
       screenID = 2; // default home
-    }
-    else if (screenID == 4 || screenID == 5) {
+    } else if (screenID == 4 || screenID == 5) {
       // exit plots to main average screen
       screenID = 2;
-    }
-    else {
+    } else {
       // toggle between main avg (2) and raw (3)
       if (screenID == 2) screenID = 3;
       else screenID = 2;
@@ -246,7 +247,8 @@ void loop() {
   checkResetButton();
 
   // Update sleep counter
-  bool isPressed = (digitalRead(GRAPH_PIN) == LOW || digitalRead(VALUE_PIN) == LOW);
+  bool isPressed =
+    (digitalRead(GRAPH_PIN) == LOW || digitalRead(VALUE_PIN) == LOW);
   if (irValue < FINGER_THRESHOLD && !isPressed) {  // no finger or no button pressed
     sleepCounter++;
   } else {
@@ -255,15 +257,14 @@ void loop() {
 
   // Enter countdown mode once sleepCounter reaches 100
   if (sleepCounter >= 100 && sleepCounter < sleepThreshold) {
-      // Save the screen they were on before countdown —— "ONLY once"
-      if (screenID != 7) {
-          lastActiveScreen = screenID;
-      }
-
-      screenID = 7;
-      count = ((sleepThreshold - sleepCounter) / 10) + 1;
+    // Save the screen they were on before countdown —— "ONLY once"
+    if (screenID != 6) {
+      lastActiveScreen = screenID;
+    }
+    screenID = 6;
+    count = ((sleepThreshold - sleepCounter) / 10) + 1;
   } else if (sleepCounter >= sleepThreshold) {
-      go_sleep();
+    go_sleep();
   }
 
   if (isPulsing) {
@@ -277,11 +278,11 @@ void loop() {
 
   // Beep and heart animation trigger (only if not screen off)
   bool fingerPresent = (irValue >= FINGER_THRESHOLD);
-  if (screenID == 7 && fingerPresent) {
-      screenID = lastActiveScreen;
-      sleepCounter = 0;
+  if (screenID == 6 && fingerPresent) {
+    screenID = lastActiveScreen;
+    sleepCounter = 0;
   }
-  if (screenID != 6 && fingerPresent) {
+  if (screenID != 7 && fingerPresent) {
     if (detectPulse(irValue)) {
       // tone(HEART_PIN, 4000, 25) was here
       triggerPulse();
@@ -319,7 +320,7 @@ void loop() {
     case 2: {
       int avgB = getAverageBPM();
       int avgS = (int)getSpo2();
-      bool vS  = isSpo2Valid();
+      bool vS = isSpo2Valid();
       bool beatNow = (millis() - lastBeepMillis) < 200;
       updateHeartDisplay(avgB, avgS, vS, beatNow, irValue);
       break;
@@ -342,13 +343,13 @@ void loop() {
       break;
 
     case 6:
-      display.clearDisplay();
-      display.display();
-      display.ssd1306_command(SSD1306_DISPLAYOFF);
+      drawCountDown(count);
       break;
 
     case 7:
-      drawCountDown(count);
+      display.clearDisplay();
+      display.display();
+      display.ssd1306_command(SSD1306_DISPLAYOFF);
       break;
 
     default:
